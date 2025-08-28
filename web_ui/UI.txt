@@ -1,0 +1,5 @@
+分析 http://localhost:8081/openapi.json接口文档  在web_ui目录下 生成UI
+功能描述:
+1、调用 /api/generate_image 生成图像任务 并纪录接口返回的task_id  
+2、定时检测 /api/task_status/{task_id}接口 检查任务状态 当状态为 completed时 进行第3步任务
+3、调用 /api/get_file/{prompt_id}接口获取图片结果并展示出来 
