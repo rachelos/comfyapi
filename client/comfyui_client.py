@@ -38,7 +38,7 @@ class ComfyUIClient:
         import os
         
         # 从配置文件中读取模板
-        template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates", "qwen-image-workflowAPI4.json")
+        template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "/resource/templates", "qwen-image-workflowAPI4.json")
         with open(template_path, "r", encoding="utf-8") as f:
             workflow_template = json.load(f)
         

@@ -218,7 +218,7 @@ def get_image_generator():
     """
     global image_generator
     if image_generator is None:
-        image_generator = ImageGenerator()
+        image_generator = ImageGenerator(server_address=os.getenv("COMFYUI_SERVER", ""))
     return image_generator
 
 # 注册退出处理函数，确保程序退出时正确清理资源
