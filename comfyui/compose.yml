@@ -1,0 +1,24 @@
+services:
+ 
+  comfyui:
+    init: true
+    container_name: comfyui
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "yanwk/comfyui-boot:cu126-slim"
+    ports:
+      - "8188:8188"
+    volumes:
+      - "./storage:/root" #將目前目录下的storage掛載到容器內部，也可以是其他路徑
+    environment:
+      - CLI_ARGS=--listen # 加上listen，能让外网存取ComfyUI
+    security_opt:
+      - "label=type:nvidia_container_t"
+    deploy: #让容器能够使用CUDA
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]

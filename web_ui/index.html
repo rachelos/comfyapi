@@ -344,8 +344,8 @@
                     document.getElementById('status-display').textContent = `状态: ${status}`;
                 },
                 onProgress: (progress, data) => {
-                    console.log(`进度: ${progress * 100}%`);
-                    document.getElementById('progress-bar').style.width = `${progress * 100}%`;
+                    console.log(`进度: ${progress }%`);
+                    document.getElementById('progress-bar').style.width = `${progress}%`;
                 },
                 onComplete: (imageUrls, promptId, taskId) => {
                     console.log('图像生成完成，返回数据:', imageUrls);

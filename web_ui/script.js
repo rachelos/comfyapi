@@ -240,7 +240,7 @@ const ComfyUI = (function() {
     // 更新进度条
     function updateProgressBar(progress) {
         // 确保进度在0-100之间
-        const percentage = Math.min(100, Math.max(0, progress * 100));
+        const percentage = Math.min(100, Math.max(0, progress));
         
         if (_elements.progressBar) {
             _elements.progressBar.style.width = `${percentage}%`;
