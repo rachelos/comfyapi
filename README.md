@@ -1,7 +1,10 @@
-# ComfyUI 工具集
+# ComfyAPI 工具集
 
 这是一个基于 ComfyUI 的图像生成工具集，提供了命令行工具和 API 服务，方便用户使用 ComfyUI 生成图像。
-
+# 快速运行
+```
+docker run -d  --name comfyapi -p 8081:8081 -v ./data:/app/resources  docker.1ms.run/rachelos/comfyapi:latest
+```
 ## 项目结构
 
 ```
