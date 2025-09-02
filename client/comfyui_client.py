@@ -27,7 +27,7 @@ class ComfyUIClient:
         self.node_execution_times = {}  # 记录节点执行时间
         self.task_start_time = None     # 任务开始时间
         
-    def get_workflow_template(self):
+    def get_workflow_template(self,template_name="node_templates.json"):
         """
         获取基本的工作流模板
         
@@ -38,7 +38,8 @@ class ComfyUIClient:
         import os
         
         # 从配置文件中读取模板
-        template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "/resource/templates", "qwen-image-workflowAPI4.json")
+        # template_path = os.path.join( "./resources/templates", "qwen-image-workflowAPI4.json")
+        template_path = os.path.join( "./resources/templates", template_name)
         with open(template_path, "r", encoding="utf-8") as f:
             workflow_template = json.load(f)
         
@@ -46,6 +47,7 @@ class ComfyUIClient:
     
     def generate_image(self, prompt="", negative_prompt="", width=512, height=512, 
                     batch_size=2,
+                    template_name="node_templates.json",
                     output_file=None, **kwargs):
         """
         生成图像
@@ -68,7 +70,7 @@ class ComfyUIClient:
             str: 生成的图像文件路径
         """
         # 准备工作流
-        workflow = self.get_workflow_template()
+        workflow = self.get_workflow_template(template_name)
         
         
         # 默认参数映射

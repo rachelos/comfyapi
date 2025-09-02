@@ -76,6 +76,7 @@ class ImageGenerator:
                     id = self.client.generate_image(
                         prompt=task.params.get("prompt", ""),
                         negative_prompt=task.params.get("negative_prompt", ""),
+                        template_name=task.params.get("template_name", ""),
                         width=task.params.get("width", 512),
                         height=task.params.get("height", 512),
                         batch_size=task.params.get("batch_size", 2),
@@ -110,7 +111,7 @@ class ImageGenerator:
                 except:
                     pass
     
-    def generate_image(self, **params) -> str:
+    def generate_image(self,  **params) -> str:
         """
         提交图像生成任务
         
@@ -239,6 +240,7 @@ if __name__ == "__main__":
         task_id = generator.generate_image(
             prompt="beautiful mountain landscape with lake, sunset, photorealistic",
             negative_prompt="ugly, deformed",
+            template_name="node_templates.json",
             width=512,
             height=512
         )

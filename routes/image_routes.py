@@ -9,6 +9,7 @@ image_generator = get_image_generator()
 class ImageGenerationRequest(BaseModel):
     prompt: str = ""
     negative_prompt: str = ""
+    template_name: str = "qwen-image-workflowAPI4.json"
     width: int = 512
     height: int = 512
     batch_size: int = 4

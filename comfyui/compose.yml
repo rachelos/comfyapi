@@ -15,10 +15,13 @@ services:
       - CLI_ARGS=--listen # 加上listen，能让外网存取ComfyUI
     security_opt:
       - "label=type:nvidia_container_t"
-    deploy: #让容器能够使用CUDA
+    # GPU配置 - 如果有NVIDIA GPU并正确安装了NVIDIA Container Toolkit，请取消注释以下内容
+    deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0']
+              count: all
+              # device_ids: ['0']
               capabilities: [gpu]
+    
