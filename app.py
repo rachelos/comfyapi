@@ -16,6 +16,10 @@ app.include_router(image_router)
 app.mount("/resources", StaticFiles(directory="resources"), name="resources")
 # 添加web_ui前端页面静态路由
 app.mount("/", StaticFiles(directory="web_ui", html=True), name="web_ui")
-
+import threading
+def start_proxy():
+    from proxy.proxy import run_proxy
+    run_proxy()
 if __name__ == "__main__":
+    threading.Thread(target=start_proxy).start()
     uvicorn.run("app:app", host="0.0.0.0", port=8081, reload=True)

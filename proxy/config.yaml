@@ -1,0 +1,39 @@
+# 代理服务器配置文件
+
+# 服务器设置
+server_config:
+  host: '0.0.0.0'  # 监听所有网络接口
+  port: 6777       # 默认端口
+  timeout: 30      # 连接超时时间（秒）
+  max_connections: 100  # 最大并发连接数
+
+# 访问控制
+access_control:
+  enable_whitelist: false  # 是否启用白名单
+  whitelist:              # IP白名单
+    - '127.0.0.1'
+    - '192.168.1.0/24'
+  enable_blacklist: false  # 是否启用黑名单
+  blacklist: []            # IP黑名单
+
+# 目标过滤
+target_filter:
+  blocked_domains:        # 被阻止的域名列表
+    # - 'example.com'
+    # - 'blocked-site.com'
+  blocked_ips:            # 被阻止的IP列表
+    # - '1.2.3.4'
+
+# 日志设置
+logging:
+  level: 'INFO'            # 日志级别: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_to_file: false       # 是否记录到文件
+  log_file: 'proxy.log'    # 日志文件名
+  log_format: '%(asctime)s - %(levelname)s - %(message)s'  # 日志格式
+
+# 高级设置
+advanced:
+  enable_cache: false      # 是否启用缓存
+  cache_size: 100          # 缓存大小（MB）
+  enable_compression: false # 是否启用压缩
+  anonymous_mode: true     # 匿名模式（不发送真实IP）
