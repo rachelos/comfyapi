@@ -11,7 +11,6 @@ app = FastAPI(title="ComfyUI API", description="ComfyUI API服务，提供图像
 
 # 注册路由
 app.include_router(image_router)
-
 # 添加静态文件路由
 app.mount("/resources", StaticFiles(directory="resources"), name="resources")
 # 添加web_ui前端页面静态路由
