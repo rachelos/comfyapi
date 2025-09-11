@@ -1,0 +1,14 @@
+file: json/qwen-image-workflowAPI4.json
+output:
+  file: "102"
+args:
+  #提示词
+  prompt: "100.text"
+  #负向提示词
+  negative_prompt: "93.text"
+  #图像宽度
+  width: "97.width"
+  #图像高度
+  height: "97.height"
+  #图像数量
+  batch_size: "97.batch_size"

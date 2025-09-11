@@ -14,20 +14,43 @@ class ComfyUIClient:
     """
     ComfyUI客户端类，用于与ComfyUI服务器进行交互，发送工作流请求并获取生成的图像结果。
     """
-    
-    def __init__(self, server_address="http://10.10.10.59:6700"):
+    save_images=os.getenv("SAVE_IMAGES",False)
+    template_data=None
+    def __init__(self, server_address="http://10.10.10.59:6700",template_name="1.yaml"):
         """
         初始化ComfyUI客户端
         
         Args:
             server_address (str): ComfyUI服务器地址，默认为http://10.10.10.59:6700
         """
+        self.template_name=template_name
         self.server_address = server_address
         self.client_id = str(uuid.uuid4())
         self.node_execution_times = {}  # 记录节点执行时间
         self.task_start_time = None     # 任务开始时间
-        
-    def get_workflow_template(self,template_name="node_templates.json"):
+    def get_template(self):
+        if self.template_data is not None:
+            return self.template_data
+        template_path = os.path.join( "./resources/templates", self.template_name)
+        import yaml
+        self.template_data = yaml.load(open(template_path, "r", encoding="utf-8"),Loader=yaml.FullLoader)
+        return self.template_data
+
+
+    def get_args(self,key="args"):
+        data=self.get_template()
+        args=data.get(key,{})
+        return args
+    def get_template_file(self):
+        data=self.get_template()
+        file=data.get("file","")
+        file=os.path.join( "./resources/templates", file)
+        if not os.path.exists(file):
+            raise Exception("模板文件不存在")
+        with open(file, "r", encoding="utf-8") as f:
+            workflow_template = json.load(f)
+        return workflow_template
+    def get_workflow_template(self,params={},**kwargs):
         """
         获取基本的工作流模板
         
@@ -38,16 +61,35 @@ class ComfyUIClient:
         import os
         
         # 从配置文件中读取模板
-        # template_path = os.path.join( "./resources/templates", "qwen-image-workflowAPI4.json")
-        template_path = os.path.join( "./resources/templates", template_name)
-        with open(template_path, "r", encoding="utf-8") as f:
-            workflow_template = json.load(f)
+        workflow = self.get_template_file()
+        args=self.get_args()
+         # 默认参数映射
+        default_params = {
+            args.get("prompt","prompt"): params.get("prompt",""),                # 正向提示词100.text": params.get("prompt",""),                # 正向提示词
+            args.get("negative_prompt","negative_prompt"): params.get("negative_prompt",""),        # 负向提示词
+            args.get("width","width"): params.get("width",512),                 # 图像宽度
+            args.get("height","height"): params.get("height",512),               # 图像高度
+            args.get("batch_size","batch_size"): params.get("batch_size",2),         # 生成数量
+            # "95.steps": steps,                 # 采样步数
+            # "95.cfg": cfg,                     # CFG比例
+            # "95.seed": seed,                   # 随机种子
+            # "124.unet_name": model             # 模型名称
+        }
         
-        return workflow_template
+        # 合并用户提供的额外参数
+        for key, value in kwargs.items():
+            if "." in key:
+                default_params[key] = value
+        # 更新工作流参数
+        for key, value in default_params.items():
+            if "." in key:
+                node_id, param_name = key.split(".", 1)
+                if node_id in workflow and "inputs" in workflow[node_id] and param_name in workflow[node_id]["inputs"]:
+                    workflow[node_id]["inputs"][param_name] = value
+        return workflow
     
     def generate_image(self, prompt="", negative_prompt="", width=512, height=512, 
                     batch_size=2,
-                    template_name="node_templates.json",
                     output_file=None, **kwargs):
         """
         生成图像
@@ -70,33 +112,16 @@ class ComfyUIClient:
             str: 生成的图像文件路径
         """
         # 准备工作流
-        workflow = self.get_workflow_template(template_name)
+        workflow = self.get_workflow_template({
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "width": width,
+            "height": height,
+            "batch_size": batch_size,
+        },**kwargs)
         
         
-        # 默认参数映射
-        default_params = {
-            "100.text": prompt,                # 正向提示词
-            "93.text": negative_prompt,        # 负向提示词
-            "97.width": width,                 # 图像宽度
-            "97.height": height,               # 图像高度
-            "97.batch_size":batch_size,         # 生成数量
-            # "95.steps": steps,                 # 采样步数
-            # "95.cfg": cfg,                     # CFG比例
-            # "95.seed": seed,                   # 随机种子
-            # "124.unet_name": model             # 模型名称
-        }
-        
-        # 合并用户提供的额外参数
-        for key, value in kwargs.items():
-            if "." in key:
-                default_params[key] = value
-        
-        # 更新工作流参数
-        for key, value in default_params.items():
-            if "." in key:
-                node_id, param_name = key.split(".", 1)
-                if node_id in workflow and "inputs" in workflow[node_id] and param_name in workflow[node_id]["inputs"]:
-                    workflow[node_id]["inputs"][param_name] = value
+       
         
         # 发送请求
         prompt_data = {
@@ -138,10 +163,11 @@ class ComfyUIClient:
         
         # 获取生成的图像
         outputs = history[prompt_id]["outputs"]
-        if "102" not in outputs:
+        key=self.get_args(key="output").get("file","102")
+        if key not in outputs:
             raise Exception("生成失败，未找到输出图像")
         
-        images = outputs["102"]["images"]
+        images = outputs[key]["images"]
         index=0
         for image_data in images:
             filename = image_data["filename"]
@@ -150,37 +176,65 @@ class ComfyUIClient:
             
             # 下载图像
             image_url = f"{self.server_address}/api/view?filename={filename}&subfolder={subfolder}&type={filetype}"
+            images[index]["url"]=image_url
+            if self.save_images==True:
+                print(f"图像URL: {image_url}")
+                continue
             image_response = requests.get(image_url)
             if image_response.status_code != 200:
                 raise Exception(f"下载图像失败: {image_response.status_code}")
             
             # 保存图像
-            output_file = self.get_file(task_id,index)
+            output_file = self.get_file(task_id,index,ext=filename[filename.rfind("."):])
             
             with open(output_file, "wb") as f:
                 f.write(image_response.content)
             index+=1
             print(f"图像已保存到: {output_file}")
+        #保存JSON
+        self.save_images_json(prompt_id=task_id,images=images)
         return images
     
-
+    # 保存图像json
+    def save_images_json(self,prompt_id,images):
+        value=json.dumps(images, ensure_ascii=False, indent=4).encode("utf-8")
+        output_file = self.get_file(prompt_id, "images",ext=".json")
+        with open(output_file, "wb") as f:
+              f.write(value)
+        pass
+    
+    # 获取图像json
+    def get_images_json(self,prompt_id):
+        output_file = self.get_file(prompt_id, "images",ext=".json")
+        if not os.path.exists(output_file):
+            raise Exception("图像JSON文件不存在")
+        return json.loads(open(output_file, "r", encoding="utf-8").read())
+    
+    # 打印任务摘要
+    
     # 创建保存目录 ./res/img+月份
     save_dir=os.path.join(os.path.dirname(os.path.dirname(__file__)), f"resources/img/{time.strftime("%m")}/")
-    def get_file(self,prompt_id,index=0):
+    def get_file(self,prompt_id,index=0,ext=".png"):
         save_dir = os.path.join(self.save_dir, f"{prompt_id}")
         os.makedirs(save_dir, exist_ok=True)
         
         # 使用prompt_id作为文件名
-        output_file = os.path.join(save_dir, f"{index}.png")
+        output_file = os.path.join(save_dir, f"{index}{ext}")
         return output_file
+    
     def get_files(self,prompt_id):
         save_dir = os.path.join(self.save_dir, f"{prompt_id}")
+        if self.save_images==False:
+            files=[url['url'] for url in self.get_images_json(prompt_id) ]
+            return files
+        
+        # 检查保存目录是否存在
         file_root=save_dir.replace(os.path.dirname(os.path.dirname(__file__)),"").replace("\\","/")
         if not os.path.exists(save_dir):
             raise Exception(f"文件夹不存在: {file_root}")
         
         # 获取文件夹中的所有PNG文件
-        files = [os.path.join(file_root, f) for f in os.listdir(save_dir) if f.endswith(".png")]
+        files = [os.path.join(file_root, f) for f in os.listdir(save_dir) if f.endswith(".png") or f.endswith(".webp") or f.endswith(".jpg")]
         if not files:
             raise Exception(f"未找到任何PNG文件: {file_root}")
         
@@ -357,12 +411,13 @@ class ComfyUIClient:
 
 if __name__ == "__main__":
     # 简单的测试
-    client = ComfyUIClient()
+    client = ComfyUIClient(server_address="http://10.10.10.54:6700")
     
     # 基本用法
     id = client.generate_image(
         prompt="beautiful mountain landscape with lake, sunset, photorealistic",
         negative_prompt="ugly, deformed",
+        template_name="1.yaml",
         width=512,
         height=512
     )
