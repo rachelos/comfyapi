@@ -72,7 +72,7 @@ class ImageGenerator:
                     kwargs = {}
                     if task.params.get("extra_params"):
                         kwargs.update(task.params["extra_params"])
-                    
+                    self.client.set_workflow(task.params.get("workflow", "1.yml"))
                     id = self.client.generate_image(
                         prompt=task.params.get("prompt", ""),
                         negative_prompt=task.params.get("negative_prompt", ""),
@@ -176,6 +176,14 @@ class ImageGenerator:
         """
         return self.client.get_files(prompt_id)
     
+    def get_workflows(self) -> list:
+        """
+        获取流程
+        Returns:
+            json: 流程信息
+        """
+        return self.client.get_workflows()
+    
     def shutdown(self):
         """
         关闭图像生成器
@@ -230,33 +238,3 @@ def cleanup_resources():
         image_generator.shutdown()
         image_generator = None
 atexit.register(cleanup_resources)
-
-if __name__ == "__main__":
-    # 获取图像生成器实例
-    generator = get_image_generator()
-    
-    try:
-        # 简单的测试
-        task_id = generator.generate_image(
-            prompt="beautiful mountain landscape with lake, sunset, photorealistic",
-            negative_prompt="ugly, deformed",
-            template_name="node_templates.json",
-            width=512,
-            height=512
-        )
-        
-        print(f"任务已提交，任务ID: {task_id}")
-        
-        # 等待任务完成
-        while True:
-            status = generator.get_task_status(task_id)
-            print(f"任务状态: {status['status']}")
-            
-            if status["status"] in ["completed", "failed"]:
-                break
-            
-            time.sleep(1)
-    finally:
-        # 程序退出时会自动调用注册的cleanup_resources函数
-        # 这里不需要显式调用shutdown
-        pass

@@ -16,6 +16,8 @@ class ComfyUIClient:
     """
     save_images=os.getenv("SAVE_IMAGES",False)
     template_data=None
+    def set_workflow(self,flow_id="1.yml"):
+        self.template_name=flow_id
     def __init__(self, server_address="http://10.10.10.59:6700",template_name="1.yaml"):
         """
         初始化ComfyUI客户端
@@ -70,12 +72,17 @@ class ComfyUIClient:
             args.get("width","width"): params.get("width",512),                 # 图像宽度
             args.get("height","height"): params.get("height",512),               # 图像高度
             args.get("batch_size","batch_size"): params.get("batch_size",2),         # 生成数量
-            # "95.steps": steps,                 # 采样步数
-            # "95.cfg": cfg,                     # CFG比例
-            # "95.seed": seed,                   # 随机种子
-            # "124.unet_name": model             # 模型名称
         }
-        
+        #采样步数
+        if params.get("steps",None) is not None:
+            default_params[args.get("steps","steps")]=params.get("steps",4)
+        #CFG比例
+        if params.get("cfg",None) is not None:
+            default_params[args.get("cfg","cfg")]=params.get("cfg","")
+        #随机种子
+        if params.get("seed",None) is not None:
+            default_params[args.get("seed","seed")]=params.get("seed",-1)
+
         # 合并用户提供的额外参数
         for key, value in kwargs.items():
             if "." in key:
@@ -90,7 +97,8 @@ class ComfyUIClient:
     
     def generate_image(self, prompt="", negative_prompt="", width=512, height=512, 
                     batch_size=2,
-                    output_file=None, **kwargs):
+                    steps=None,cfg=None,seed=None,
+                     **kwargs):
         """
         生成图像
         
@@ -118,6 +126,9 @@ class ComfyUIClient:
             "width": width,
             "height": height,
             "batch_size": batch_size,
+            "steps": steps,
+            "cfg": cfg,
+            "seed": seed,
         },**kwargs)
         
         
@@ -135,8 +146,10 @@ class ComfyUIClient:
             raise Exception(f"请求失败: {response.status_code} {response.text}")
         
         prompt_id = response.json()["prompt_id"]
-        print(f"请求已发送，正在等待生成结果 (Prompt ID: {prompt_id})...")
+        print(f"请求已发送，{self.template_name}正在等待生成结果 (Prompt ID: {prompt_id})...")
+        print(workflow)
         return prompt_id
+        
     def status(self, prompt_id=None,task_id=""):
         if prompt_id is None:
             print("请提供有效的prompt_id")
@@ -177,7 +190,8 @@ class ComfyUIClient:
             # 下载图像
             image_url = f"{self.server_address}/api/view?filename={filename}&subfolder={subfolder}&type={filetype}"
             images[index]["url"]=image_url
-            if self.save_images==True:
+            index+=1
+            if self.save_images==False:
                 print(f"图像URL: {image_url}")
                 continue
             image_response = requests.get(image_url)
@@ -189,7 +203,7 @@ class ComfyUIClient:
             
             with open(output_file, "wb") as f:
                 f.write(image_response.content)
-            index+=1
+            
             print(f"图像已保存到: {output_file}")
         #保存JSON
         self.save_images_json(prompt_id=task_id,images=images)
@@ -208,7 +222,8 @@ class ComfyUIClient:
         output_file = self.get_file(prompt_id, "images",ext=".json")
         if not os.path.exists(output_file):
             raise Exception("图像JSON文件不存在")
-        return json.loads(open(output_file, "r", encoding="utf-8").read())
+        images=json.loads(open(output_file, "r", encoding="utf-8").read())
+        return images
     
     # 打印任务摘要
     
@@ -222,10 +237,47 @@ class ComfyUIClient:
         output_file = os.path.join(save_dir, f"{index}{ext}")
         return output_file
     
+    # 清除保存的文件
+    def clean_files(self):
+        # 删除保存目录及其内容（包括非空目录）
+        import shutil
+        if os.path.exists(self.save_dir):
+            shutil.rmtree(self.save_dir)
+            # 重新创建目录
+            os.makedirs(self.save_dir, exist_ok=True)
+        pass
+    def get_workflows(self):
+        """
+        获取template目录下所有的.yml和.yaml文件名
+        
+        Returns:
+            list: 工作流模板文件名列表
+        """
+        import os
+        import glob
+        import yaml
+        # 获取template目录路径
+        templates_dir = os.path.join("./resources/templates")
+        
+        # 使用glob模块获取所有.yml和.yaml文件
+        yml_files = glob.glob(os.path.join(templates_dir, "*.yml"))
+        yaml_files = glob.glob(os.path.join(templates_dir, "*.yaml"))
+        
+        # 合并文件列表并只保留文件名（不含路径）
+        workflow_files = []
+        for file_path in yml_files + yaml_files:
+            data=yaml.load(open(file_path, "r", encoding="utf-8"), Loader=yaml.FullLoader) if yaml.load(open(file_path, "r", encoding="utf-8"), Loader=yaml.FullLoader)["name"] else os.path.basename(file_path)
+            workflow_files.append({
+                "name": data["name"],
+                "path": os.path.basename(file_path).replace("\\","/")
+            })
+            
+        return workflow_files
     def get_files(self,prompt_id):
         save_dir = os.path.join(self.save_dir, f"{prompt_id}")
         if self.save_images==False:
-            files=[url['url'] for url in self.get_images_json(prompt_id) ]
+            data=self.get_images_json(prompt_id)
+            files=[url['url'] for url in data if 'url' in url]
             return files
         
         # 检查保存目录是否存在
@@ -411,15 +463,16 @@ class ComfyUIClient:
 
 if __name__ == "__main__":
     # 简单的测试
-    client = ComfyUIClient(server_address="http://10.10.10.54:6700")
-    
+    client = ComfyUIClient(server_address="http://10.10.10.54:6700", template_name="2.yaml",)
+    client.clean_files()
+    print(client.get_workflows())
     # 基本用法
     id = client.generate_image(
-        prompt="beautiful mountain landscape with lake, sunset, photorealistic",
+        prompt="beautiful cat landscape with lake, sunset, photorealistic",
         negative_prompt="ugly, deformed",
-        template_name="1.yaml",
         width=512,
-        height=512
+        height=512,
+        steps=10,
     )
     output=client.status(id)
     # # 使用变量替换方式和额外参数

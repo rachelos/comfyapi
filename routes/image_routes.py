@@ -9,7 +9,7 @@ image_generator = get_image_generator()
 class ImageGenerationRequest(BaseModel):
     prompt: str = ""
     negative_prompt: str = ""
-    template_name: str = "qwen-image-workflowAPI4.json"
+    workflow: str = "1.yml"
     width: int = 512
     height: int = 512
     batch_size: int = 4
@@ -55,5 +55,15 @@ async def get_file(prompt_id: str):
     try:
         file_path = image_generator.get_files(prompt_id)
         return {"status": "success", "file_path": file_path}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"获取文件失败: {str(e)}")
+@router.get("/workflows")
+async def get_workflows():
+    """
+    获取工作流程
+    """
+    try:
+        data = image_generator.get_workflows()
+        return data
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"获取文件失败: {str(e)}")

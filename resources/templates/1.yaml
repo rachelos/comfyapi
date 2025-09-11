@@ -1,3 +1,4 @@
+name: 题图生成
 file: json/qwen-image-workflowAPI4.json
 output:
   file: "102"

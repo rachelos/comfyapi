@@ -61,6 +61,10 @@ const ComfyUI = (function() {
 
     // 开始图像生成流程
     async function startImageGeneration() {
+        // 防止重复提交
+        if (this._isGenerating) return;
+        this._isGenerating = true;
+        
         try {
             // 禁用按钮，防止重复提交
             setGeneratingState(true);
@@ -94,6 +98,7 @@ const ComfyUI = (function() {
             console.error('图像生成失败:', error);
             updateStatus(`错误: ${error.message}`);
             setGeneratingState(false);
+            this._isGenerating = false;
             
             // 触发错误回调
             if (typeof _config.onError === 'function') {
@@ -101,6 +106,8 @@ const ComfyUI = (function() {
             }
             
             throw error;
+        } finally {
+            this._isGenerating = false;
         }
     }
 
@@ -114,6 +121,7 @@ const ComfyUI = (function() {
         // 默认从DOM获取数据
         return {
             prompt: document.getElementById('prompt')?.value.trim() || '',
+            workflow: document.getElementById('workflow')?.value.trim() || '',
             negative_prompt: document.getElementById('negative-prompt')?.value.trim() || '',
             width: parseInt(document.getElementById('width')?.value || '512'),
             height: parseInt(document.getElementById('height')?.value || '512'),

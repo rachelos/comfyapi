@@ -78,7 +78,7 @@
             border: 1px solid var(--border-color);
         }
         
-        input[type="text"], input[type="number"] {
+        input[type="text"], input[type="number"], select {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border-color);
@@ -89,7 +89,7 @@
             margin-bottom: 15px;
         }
         
-        input[type="text"]:focus, input[type="number"]:focus {
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
@@ -262,6 +262,19 @@
         <h2>创建您的AI艺术</h2>
         
         <div class="form-group">
+            <label for="workflow">
+                <span class="label-icon">📋</span>
+                选择流程:
+                <button id="refresh-workflows" type="button" style="float: right; padding: 4px 8px; font-size: 0.8rem; margin: 0;">
+                    <span class="btn-icon">🔄</span>刷新
+                </button>
+            </label>
+            <select id="workflow" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--border-radius); font-size: 1rem; transition: border-color 0.2s, box-shadow 0.2s; margin-top: 5px; margin-bottom: 15px;">
+                <option value="">加载中...</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
             <label for="prompt">
                 <span class="label-icon">✨</span>
                 提示词:
@@ -334,9 +347,66 @@
     
     <script>
         // 等待页面加载完成
+        // 获取流程数据的函数
+        async function fetchWorkflows() {
+            try {
+                const workflowSelect = document.getElementById('workflow');
+                workflowSelect.innerHTML = '<option value="">加载中...</option>';
+                
+                const response = await fetch('/api/workflows');
+                if (!response.ok) {
+                    throw new Error(`HTTP错误: ${response.status}`);
+                }
+                
+                const workflows = await response.json();
+                
+                // 清空下拉框
+                workflowSelect.innerHTML = '';
+                
+                // 添加默认选项
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = '-- 请选择流程 --';
+                workflowSelect.appendChild(defaultOption);
+                
+                // 添加流程选项
+                workflows.forEach((workflow, index) => {
+                    const option = document.createElement('option');
+                    option.value = workflow.path ||"";
+                    option.textContent = workflow.name || `流程 ${option.value}`;
+                    workflowSelect.appendChild(option);
+                    
+                    // 默认选择第一个有效选项
+                    if (index === 0) {
+                        workflowSelect.value = option.value;
+                    }
+                });
+                
+                console.log(`成功加载 ${workflows.length} 个流程`);
+                
+                // 如果没有流程数据，显示提示
+                if (workflows.length === 0) {
+                    workflowSelect.innerHTML = '<option value="">没有可用流程</option>';
+                }
+            } catch (error) {
+                console.error('获取流程数据失败:', error);
+                const workflowSelect = document.getElementById('workflow');
+                workflowSelect.innerHTML = '<option value="">加载失败，请刷新重试</option>';
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', () => {
-            // 初始化 ComfyUI
-            ComfyUI.init({
+            // 加载流程数据
+            fetchWorkflows();
+            
+            // 绑定刷新按钮事件
+            document.getElementById('refresh-workflows').addEventListener('click', () => {
+                fetchWorkflows();
+                document.getElementById('status-display').textContent = '正在刷新流程列表...';
+            });
+            
+            // 配置 ComfyUI 的回调函数
+            ComfyUI.configure({
                 apiBasePath: '/api',
                 statusCheckInterval: 1000,
                 onStatusChange: (status, taskId, data) => {
@@ -531,7 +601,13 @@
                 
                 try {
                     // 获取表单数据
+                    const workflowId = document.getElementById('workflow').value||"";
+                    if (!workflowId) {
+                        throw new Error('请选择一个流程');
+                    }
+                    
                     const formData = {
+                        workflow_id: workflowId,
                         prompt: document.getElementById('prompt').value.trim(),
                         negative_prompt: document.getElementById('negative-prompt').value.trim(),
                         width: parseInt(document.getElementById('width').value),
@@ -540,7 +616,7 @@
                     };
                     
                     // 调用 API 生成图像
-                    const taskData = await ComfyUI.generateImage(formData);
+                    // const taskData = await ComfyUI.generateImage(formData);
                     document.getElementById('status-display').textContent = `任务已提交，ID: ${taskData.task_id}`;
                 } catch (error) {
                     document.getElementById('status-display').textContent = `错误: ${error.message}`;

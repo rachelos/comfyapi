@@ -1,12 +1,15 @@
-file: json/node_templates.json
+name: 视频生成
+file: json/video.json
+output:
+  file: "28"
 args:
   #提示词
-  prompt: "100.text"
+  prompt: "6.text"
   #负向提示词
-  negative_prompt: "93.text"
+  negative_prompt: "7.text"
   #图像宽度
-  width: "97.width"
+  width: "40.width"
   #图像高度
-  height: "97.height"
+  height: "40.height"
   #图像数量
-  batch_size: "97.batch_size"
+  batch_size: "40.batch_size"
