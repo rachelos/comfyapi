@@ -463,7 +463,7 @@ class ComfyUIClient:
 
 if __name__ == "__main__":
     # 简单的测试
-    client = ComfyUIClient(server_address="http://10.10.10.54:6700", template_name="2.yaml",)
+    client = ComfyUIClient(server_address="http://10.10.10.54:8188", template_name="1.yaml",)
     client.clean_files()
     print(client.get_workflows())
     # 基本用法

@@ -397,13 +397,9 @@
             fetchWorkflows();
             
             // 绑定刷新按钮事件
-            document.getElementById('refresh-workflows').addEventListener('click', () => {
-                fetchWorkflows();
-                document.getElementById('status-display').textContent = '正在刷新流程列表...';
-            });
-            
+            console.log("Load ComfyUI API")
             // 配置 ComfyUI 的回调函数
-            ComfyUI.configure({
+            ComfyUI.init({
                 apiBasePath: '/api',
                 statusCheckInterval: 1000,
                 onStatusChange: (status, taskId, data) => {

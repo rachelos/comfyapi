@@ -32,7 +32,7 @@ const ComfyUI = (function() {
     function init(config = {}) {
         // 合并配置
         _config = {..._config, ...config};
-        
+        console.log(_config)
         // 初始化DOM元素引用
         _elements = {
             generateBtn: document.getElementById('generate-btn'),
@@ -52,12 +52,12 @@ const ComfyUI = (function() {
     }
     
     // 当DOM加载完成时自动初始化
-    document.addEventListener('DOMContentLoaded', () => {
-        // 只有在没有手动初始化的情况下才自动初始化
-        if (!ComfyUI.initialized) {
-            ComfyUI.init();
-        }
-    });
+    // document.addEventListener('DOMContentLoaded', () => {
+    //     // 只有在没有手动初始化的情况下才自动初始化
+    //     if (!ComfyUI.initialized) {
+    //         ComfyUI.init();
+    //     }
+    // });
 
     // 开始图像生成流程
     async function startImageGeneration() {
@@ -410,6 +410,7 @@ const ComfyUI = (function() {
         // 配置方法
         configure: function(config) {
             _config = {..._config, ...config};
+            console.log(config)
             return this;
         },
         

@@ -20,5 +20,11 @@ def start_proxy():
     from proxy.proxy import run_proxy
     run_proxy()
 if __name__ == "__main__":
+    import os
+    import sys
+    for arg in sys.argv:
+        if arg.startswith("comfyui_server=") and len(arg.split("=")) > 1:
+            os.environ["COMFYUI_SERVER"] = arg.split("=")[1]
+            break
     threading.Thread(target=start_proxy).start()
     uvicorn.run("app:app", host="0.0.0.0", port=8081, reload=True)
