@@ -14,18 +14,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GITEE_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
-
       - name: Sync to Gitee
         run: |
-          git remote add gitee  https://gitee.com/rachelos/comfyapi.git
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          # 使用账号密码方式推送到Gitee
+          remote_url="https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_PASSWORD }}@gitee.com/rachelos/comfyapi.git"
+          git remote add gitee $remote_url
           git push -f gitee ${{ github.ref_name }}
-
-      - name: Clean up SSH
-        run: |
-          rm -rf ~/.ssh/id_rsa
