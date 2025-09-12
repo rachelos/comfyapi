@@ -1,0 +1,16 @@
+name: 人像生成
+
+file: json/flux.json
+output:
+  file: "28"
+args:
+  #提示词
+  prompt: "9.text"
+  #负向提示词
+  negative_prompt: "33.text"
+  #图像宽度
+  width: "27.width"
+  #图像高度
+  height: "27.height"
+  #图像数量
+  batch_size: "27.batch_size"

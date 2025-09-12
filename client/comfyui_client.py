@@ -31,8 +31,6 @@ class ComfyUIClient:
         self.node_execution_times = {}  # 记录节点执行时间
         self.task_start_time = None     # 任务开始时间
     def get_template(self):
-        if self.template_data is not None:
-            return self.template_data
         template_path = os.path.join( "./resources/templates", self.template_name)
         import yaml
         self.template_data = yaml.load(open(template_path, "r", encoding="utf-8"),Loader=yaml.FullLoader)
@@ -463,7 +461,8 @@ class ComfyUIClient:
 
 if __name__ == "__main__":
     # 简单的测试
-    client = ComfyUIClient(server_address="http://10.10.10.54:8188", template_name="1.yaml",)
+    os.environ["SAVE_IMAGES"] = "True"
+    client = ComfyUIClient(server_address="http://10.10.10.54:8188", template_name="2.yaml",)
     client.clean_files()
     print(client.get_workflows())
     # 基本用法
