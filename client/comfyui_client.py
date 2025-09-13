@@ -36,8 +36,8 @@ class ComfyUIClient:
         try:
             self.template_data = yaml.load(open(template_path, "r", encoding="utf-8"),Loader=yaml.FullLoader)
         except:
-            print(os.path.abspath("./"))
-            raise Exception(f"模板文件不存在${template_path}")
+            print(os.path.abspath(template_path))
+            raise Exception(f"模板文件不存在{template_path}")
         return self.template_data
 
 
