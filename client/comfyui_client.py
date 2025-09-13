@@ -33,7 +33,11 @@ class ComfyUIClient:
     def get_template(self):
         template_path = os.path.join( "./resources/templates", self.template_name)
         import yaml
-        self.template_data = yaml.load(open(template_path, "r", encoding="utf-8"),Loader=yaml.FullLoader)
+        try:
+            self.template_data = yaml.load(open(template_path, "r", encoding="utf-8"),Loader=yaml.FullLoader)
+        except:
+            print(os.path.abspath("./"))
+            raise Exception(f"模板文件不存在${template_path}")
         return self.template_data
 
 
