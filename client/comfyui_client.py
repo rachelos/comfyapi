@@ -145,6 +145,8 @@ class ComfyUIClient:
         # 发送请求到ComfyUI服务器
         response = requests.post(f"{self.server_address}/api/prompt", json=prompt_data)
         if response.status_code != 200:
+            print(prompt_data)
+            print(response)
             raise Exception(f"请求失败: {response.status_code} {response.text}")
         
         prompt_id = response.json()["prompt_id"]
@@ -465,19 +467,23 @@ class ComfyUIClient:
 
 if __name__ == "__main__":
     # 简单的测试
-    os.environ["SAVE_IMAGES"] = "True"
-    client = ComfyUIClient(server_address="http://10.10.10.54:8188", template_name="2.yaml",)
-    client.clean_files()
-    print(client.get_workflows())
-    # 基本用法
-    id = client.generate_image(
-        prompt="beautiful cat landscape with lake, sunset, photorealistic",
-        negative_prompt="ugly, deformed",
-        width=512,
-        height=512,
-        steps=10,
-    )
-    output=client.status(id)
+    try:
+        os.environ["SAVE_IMAGES"] = "True"
+        client = ComfyUIClient(server_address="http://10.10.10.54:6700", template_name="3.yaml",)
+        client.clean_files()
+        print(client.get_workflows())
+        # 基本用法
+        id = client.generate_image(
+            prompt="beautiful cat landscape with lake, sunset, photorealistic",
+            negative_prompt="ugly, deformed",
+            width=512,
+            height=512,
+            steps=10,
+        )
+        output=client.status(id)
+    except Exception as e:
+        print(e)
+        pass
     # # 使用变量替换方式和额外参数
     # id = client.generate_image(
     #     prompt="cyberpunk city with neon lights, futuristic architecture",

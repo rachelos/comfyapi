@@ -2,12 +2,12 @@ name: 人像生成
 
 file: json/flux.json
 output:
-  file: "28"
+  file: "9"
 args:
   #提示词
-  prompt: "9.text"
+  prompt: "6.text"
   #负向提示词
-  negative_prompt: "33.text"
+  negative_prompt: "38.text"
   #图像宽度
   width: "27.width"
   #图像高度
