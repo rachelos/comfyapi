@@ -1,8 +1,4 @@
 #!/bin/bash
 cd /app/
-pwd
+pip3 install -r requirements.txt
 python3 app.py
-# 执行一些操作...
-while true; do
-  sleep 10
-done

@@ -129,3 +129,21 @@ python main.py test
 - **URL**: `/api/download_image/{prompt_id}`
 - **方法**: GET
 - **响应**: 图像文件（PNG）
+
+### 代理远程图片
+
+- **URL**: `/api/proxy_image`
+- **方法**: GET
+- **参数**: 
+  - `url` (查询参数): 要代理的远程图片URL
+- **响应**: 图片流（支持跨域访问）
+- **示例**: 
+  ```
+  GET /api/proxy_image?url=https://example.com/image.jpg
+  ```
+- **功能特点**:
+  - 解决跨域访问问题
+  - 支持多种图片格式（JPEG、PNG、GIF）
+  - 自动图片优化和压缩
+  - 缓存机制提高性能
+  - 支持重定向跟随

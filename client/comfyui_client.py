@@ -33,13 +33,16 @@ class ComfyUIClient:
         self.node_execution_times = {}  # 记录节点执行时间
         self.task_start_time = None     # 任务开始时间
     def get_template(self):
-        template_path = os.path.join( "./resources/templates", self.template_name)
+        # 获取当前文件的目录，然后构建绝对路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        template_path = os.path.join(project_root, "resources", "templates", self.template_name)
         import yaml
         try:
             self.template_data = yaml.load(open(template_path, "r", encoding="utf-8"),Loader=yaml.FullLoader)
         except:
-            print(os.path.abspath(template_path))
-            raise Exception(f"模板文件不存在{template_path}")
+            print(f"尝试加载的模板路径: {os.path.abspath(template_path)}")
+            raise Exception(f"模板文件不存在: {template_path}")
         return self.template_data
 
 
@@ -50,9 +53,12 @@ class ComfyUIClient:
     def get_template_file(self):
         data=self.get_template()
         file=data.get("file","")
-        file=os.path.join( "./resources/templates", file)
+        # 获取当前文件的目录，然后构建绝对路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        file=os.path.join(project_root, "resources", "templates", file)
         if not os.path.exists(file):
-            raise Exception("模板文件不存在")
+            raise Exception(f"模板文件不存在: {file}")
         with open(file, "r", encoding="utf-8") as f:
             workflow_template = json.load(f)
         return workflow_template
@@ -515,8 +521,8 @@ class ComfyUIClient:
         templates_dir = os.path.join("./resources/templates")
         
         # 使用glob模块获取所有.yml和.yaml文件
-        yml_files = glob.glob(os.path.join(templates_dir, "*.yml"))
-        yaml_files = glob.glob(os.path.join(templates_dir, "*.yaml"))
+        yml_files = glob.glob(os.path.join(templates_dir, "*.yml"),recursive=True)
+        yaml_files = glob.glob(os.path.join(templates_dir, "*.yaml"),recursive=True)
         
         # 合并文件列表并只保留文件名（不含路径）
         workflow_files = []

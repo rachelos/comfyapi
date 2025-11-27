@@ -4,15 +4,16 @@ FROM  ghcr.io/rachelos/py3.13.1:latest
 WORKDIR /app
 
 # ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-ENV PIP_INDEX_URL=https://mirrors.huaweicloud.com/repository/pypi/simple
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 复制Python依赖文件
 # 复制后端代码
-COPY . .
 COPY requirements.txt .
-RUN pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip3 install -r requirements.txt 
+ADD . .
 RUN chmod +x ./start.sh
 # 暴露端口
 EXPOSE 8081
 # 启动命令
 CMD ["./start.sh"]
+# CMD ["sleep", "infinity"]
