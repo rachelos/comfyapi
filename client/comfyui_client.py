@@ -9,6 +9,8 @@ import uuid
 import requests
 from PIL import Image
 from io import BytesIO
+from datetime import datetime, timedelta
+import shutil
 
 class ComfyUIClient:
     """
@@ -121,6 +123,12 @@ class ComfyUIClient:
         Returns:
             str: 生成的图像文件路径
         """
+        # 自动清理过期缓存
+        try:
+            self.auto_clean_cache(days_threshold=1, check_interval_hours=24)
+        except Exception as e:
+            print(f"自动清理缓存失败: {e}")
+        
         # 准备工作流
         workflow = self.get_workflow_template({
             "prompt": prompt,
@@ -193,41 +201,32 @@ class ComfyUIClient:
             
             # 下载图像
             image_url = f"{self.server_address}/api/view?filename={filename}&subfolder={subfolder}&type={filetype}"
-            images[index]["url"]=image_url
-            index+=1
-            if self.save_images==False:
-                print(f"图像URL: {image_url}")
-                continue
+            
+            # 生成本地缓存URL
+            output_file = self.get_file(task_id, index, ext=filename[filename.rfind("."):])
+            relative_path = output_file.replace(os.path.dirname(os.path.dirname(__file__)), "").replace("\\", "/")
+            local_url = f"/resources{relative_path}"
+            
+            # 下载并保存图片到缓存（无论save_images设置如何都要缓存）
             image_response = requests.get(image_url)
             if image_response.status_code != 200:
                 raise Exception(f"下载图像失败: {image_response.status_code}")
             
-            # 保存图像
-            output_file = self.get_file(task_id,index,ext=filename[filename.rfind("."):])
-            
+            # 保存图像到缓存目录
             with open(output_file, "wb") as f:
                 f.write(image_response.content)
             
-            print(f"图像已保存到: {output_file}")
-        #保存JSON
-        self.save_images_json(prompt_id=task_id,images=images)
+            # 设置图片信息
+            images[index]["url"] = local_url
+            # images[index]["original_url"] = image_url  # 保存原始URL以备需要
+            index+=1
+            
+            if self.save_images==False:
+                print(f"图像已缓存到本地: {local_url}")
+            else:
+                print(f"图像已保存到: {output_file}")
         return images
-    
-    # 保存图像json
-    def save_images_json(self,prompt_id,images):
-        value=json.dumps(images, ensure_ascii=False, indent=4).encode("utf-8")
-        output_file = self.get_file(prompt_id, "images",ext=".json")
-        with open(output_file, "wb") as f:
-              f.write(value)
-        pass
-    
-    # 获取图像json
-    def get_images_json(self,prompt_id):
-        output_file = self.get_file(prompt_id, "images",ext=".json")
-        if not os.path.exists(output_file):
-            raise Exception("图像JSON文件不存在")
-        images=json.loads(open(output_file, "r", encoding="utf-8").read())
-        return images
+
     
     # 打印任务摘要
     
@@ -250,6 +249,258 @@ class ComfyUIClient:
             # 重新创建目录
             os.makedirs(self.save_dir, exist_ok=True)
         pass
+    
+    def clean_old_cache(self, days_threshold=1, dry_run=False):
+        """
+        清理超过指定天数的缓存图片
+        
+        Args:
+            days_threshold (int): 清理阈值天数，默认为1天
+            dry_run (bool): 是否为试运行模式，True时只显示将要删除的文件
+            
+        Returns:
+            dict: 清理统计信息
+        """
+        cache_root_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources/img")
+        cutoff_time = time.time() - (days_threshold * 24 * 60 * 60)
+        
+        if not os.path.exists(cache_root_dir):
+            print(f"缓存目录不存在: {cache_root_dir}")
+            return {"deleted_files": 0, "deleted_dirs": 0, "freed_space": 0}
+        
+        deleted_files = 0
+        deleted_dirs = 0
+        freed_space = 0
+        
+        print(f"开始清理超过 {days_threshold} 天的缓存文件...")
+        print(f"缓存目录: {cache_root_dir}")
+        print(f"截止时间: {datetime.fromtimestamp(cutoff_time).strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        if dry_run:
+            print("=== 试运行模式 - 不会实际删除文件 ===")
+        
+        # 遍历所有月份目录
+        for month_dir in os.listdir(cache_root_dir):
+            month_path = os.path.join(cache_root_dir, month_dir)
+            if not os.path.isdir(month_path):
+                continue
+            
+            # 遍历任务目录
+            for task_dir in os.listdir(month_path):
+                task_path = os.path.join(month_path, task_dir)
+                if not os.path.isdir(task_path):
+                    continue
+                
+                # 检查任务目录的修改时间
+                dir_mtime = os.path.getmtime(task_path)
+                
+                if dir_mtime < cutoff_time:
+                    # 计算目录大小
+                    dir_size = self._get_dir_size(task_path)
+                    
+                    if dry_run:
+                        print(f"[试运行] 将删除目录: {task_path} (修改时间: {datetime.fromtimestamp(dir_mtime).strftime('%Y-%m-%d %H:%M:%S')}, 大小: {self._format_size(dir_size)})")
+                    else:
+                        try:
+                            shutil.rmtree(task_path)
+                            print(f"已删除目录: {task_path} (修改时间: {datetime.fromtimestamp(dir_mtime).strftime('%Y-%m-%d %H:%M:%S')}, 大小: {self._format_size(dir_size)})")
+                            deleted_dirs += 1
+                            freed_space += dir_size
+                        except Exception as e:
+                            print(f"删除目录失败 {task_path}: {e}")
+        
+        # 清理空的月份目录
+        for month_dir in os.listdir(cache_root_dir):
+            month_path = os.path.join(cache_root_dir, month_dir)
+            if os.path.isdir(month_path) and not os.listdir(month_path):
+                if dry_run:
+                    print(f"[试运行] 将删除空目录: {month_path}")
+                else:
+                    try:
+                        os.rmdir(month_path)
+                        print(f"已删除空目录: {month_path}")
+                        deleted_dirs += 1
+                    except Exception as e:
+                        print(f"删除空目录失败 {month_path}: {e}")
+        
+        # 输出统计信息
+        print("=== 清理统计 ===")
+        if dry_run:
+            print(f"试运行完成，实际未删除任何文件")
+        else:
+            print(f"已删除文件数: {deleted_files}")
+            print(f"已删除目录数: {deleted_dirs}")
+            print(f"释放空间: {self._format_size(freed_space)}")
+        
+        return {
+            "deleted_files": deleted_files,
+            "deleted_dirs": deleted_dirs,
+            "freed_space": freed_space
+        }
+    
+    def auto_clean_cache(self, days_threshold=1, check_interval_hours=24):
+        """
+        自动清理缓存，定期检查并清理过期的缓存文件
+        
+        Args:
+            days_threshold (int): 清理阈值天数，默认为1天
+            check_interval_hours (int): 检查间隔小时数，默认24小时
+        """
+        cache_root_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources/img")
+        last_clean_file = os.path.join(cache_root_dir, ".last_clean")
+        
+        # 检查是否需要执行清理
+        current_time = time.time()
+        need_clean = False
+        
+        if not os.path.exists(last_clean_file):
+            need_clean = True
+            print("首次运行缓存清理检查")
+        else:
+            try:
+                last_clean_time = os.path.getmtime(last_clean_file)
+                hours_since_last_clean = (current_time - last_clean_time) / 3600
+                
+                if hours_since_last_clean >= check_interval_hours:
+                    need_clean = True
+                    print(f"距离上次清理已过 {hours_since_last_clean:.1f} 小时，执行自动清理")
+                else:
+                    print(f"距离上次清理仅 {hours_since_last_clean:.1f} 小时，跳过清理")
+            except Exception as e:
+                print(f"检查上次清理时间失败: {e}，执行清理")
+                need_clean = True
+        
+        if need_clean:
+            try:
+                result = self.clean_old_cache(days_threshold)
+                
+                # 记录清理时间
+                try:
+                    with open(last_clean_file, 'w') as f:
+                        f.write(datetime.now().isoformat())
+                except Exception as e:
+                    print(f"记录清理时间失败: {e}")
+                
+                return result
+            except Exception as e:
+                print(f"自动清理缓存失败: {e}")
+                return None
+        
+        return None
+    
+    def _get_dir_size(self, dir_path):
+        """计算目录总大小"""
+        total_size = 0
+        try:
+            for dirpath, dirnames, filenames in os.walk(dir_path):
+                for filename in filenames:
+                    filepath = os.path.join(dirpath, filename)
+                    if os.path.isfile(filepath):
+                        total_size += os.path.getsize(filepath)
+        except Exception:
+            pass
+        return total_size
+    
+    def _format_size(self, size_bytes):
+        """格式化文件大小显示"""
+        if size_bytes == 0:
+            return "0B"
+        size_names = ["B", "KB", "MB", "GB"]
+        i = 0
+        while size_bytes >= 1024 and i < len(size_names) - 1:
+            size_bytes /= 1024.0
+            i += 1
+        return f"{size_bytes:.2f}{size_names[i]}"
+    
+    def get_cache_info(self, days_threshold=1):
+        """
+        获取缓存统计信息
+        
+        Args:
+            days_threshold (int): 统计超过指定天数的过期缓存
+            
+        Returns:
+            dict: 缓存统计信息
+        """
+        cache_root_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources/img")
+        cutoff_time = time.time() - (days_threshold * 24 * 60 * 60)
+        
+        if not os.path.exists(cache_root_dir):
+            return {"total_size": 0, "total_dirs": 0, "total_files": 0}
+        
+        total_size = 0
+        total_dirs = 0
+        total_files = 0
+        old_files = 0
+        old_dirs = 0
+        
+        for month_dir in os.listdir(cache_root_dir):
+            month_path = os.path.join(cache_root_dir, month_dir)
+            if not os.path.isdir(month_path):
+                continue
+            
+            for task_dir in os.listdir(month_path):
+                task_path = os.path.join(month_path, task_dir)
+                if not os.path.isdir(task_path):
+                    continue
+                
+                dir_mtime = os.path.getmtime(task_path)
+                if dir_mtime < cutoff_time:
+                    old_dirs += 1
+                
+                total_dirs += 1
+                
+                for file_name in os.listdir(task_path):
+                    file_path = os.path.join(task_path, file_name)
+                    if os.path.isfile(file_path):
+                        file_size = os.path.getsize(file_path)
+                        file_mtime = os.path.getmtime(file_path)
+                        
+                        total_size += file_size
+                        total_files += 1
+                        
+                        if file_mtime < cutoff_time:
+                            old_files += 1
+        
+        return {
+            "total_size": total_size,
+            "total_dirs": total_dirs,
+            "total_files": total_files,
+            "old_dirs": old_dirs,
+            "old_files": old_files,
+            "old_size": self._estimate_old_size(days_threshold)
+        }
+    
+    def _estimate_old_size(self, days_threshold=1):
+        """估算过期文件的大小"""
+        cache_root_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources/img")
+        cutoff_time = time.time() - (days_threshold * 24 * 60 * 60)
+        old_size = 0
+        
+        try:
+            for month_dir in os.listdir(cache_root_dir):
+                month_path = os.path.join(cache_root_dir, month_dir)
+                if not os.path.isdir(month_path):
+                    continue
+                
+                for task_dir in os.listdir(month_path):
+                    task_path = os.path.join(month_path, task_dir)
+                    if not os.path.isdir(task_path):
+                        continue
+                    
+                    dir_mtime = os.path.getmtime(task_path)
+                    if dir_mtime < cutoff_time:
+                        old_size += self._get_dir_size(task_path)
+                    else:
+                        for file_name in os.listdir(task_path):
+                            file_path = os.path.join(task_path, file_name)
+                            if os.path.isfile(file_path):
+                                file_mtime = os.path.getmtime(file_path)
+                                if file_mtime < cutoff_time:
+                                    old_size += os.path.getsize(file_path)
+        except Exception:
+            pass
+        return old_size
     def get_workflows(self):
         """
         获取template目录下所有的.yml和.yaml文件名
@@ -279,21 +530,19 @@ class ComfyUIClient:
         return workflow_files
     def get_files(self,prompt_id):
         save_dir = os.path.join(self.save_dir, f"{prompt_id}")
-        if self.save_images==False:
-            data=self.get_images_json(prompt_id)
-            files=[url['url'] for url in data if 'url' in url]
-            return files
         
         # 检查保存目录是否存在
         file_root=save_dir.replace(os.path.dirname(os.path.dirname(__file__)),"").replace("\\","/")
         if not os.path.exists(save_dir):
             raise Exception(f"文件夹不存在: {file_root}")
-        
-        # 获取文件夹中的所有PNG文件
-        files = [os.path.join(file_root, f) for f in os.listdir(save_dir) if f.endswith(".png") or f.endswith(".webp") or f.endswith(".jpg")]
+        domain=""
+        # 获取文件夹中的所有图像文件，并返回本地访问URL
+        files = [f"{domain}{os.path.join(file_root, f).replace('\\', '/')}" for f in os.listdir(save_dir) if f.endswith((".png", ".webp", ".jpg", ".jpeg"))]
         if not files:
-            raise Exception(f"未找到任何PNG文件: {file_root}")
+            raise Exception(f"未找到任何图像文件: {file_root}")
         
+        # 按文件名排序，确保顺序一致
+        files.sort()
         return files
     def display_image(self, image_path):
         """
